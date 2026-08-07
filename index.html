@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>mixEm — color wheel & palette builder</title>
+<meta name="description" content="mixEm: pick from the color wheel, find harmonies, export your palette." />
+
+<!-- PWA / mobil kurulum ayarları -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#121014" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="mixEm" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+<link rel="icon" type="image/x-icon" href="icons/favicon.ico" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  html, body { background: #121014; }
+  .aura-font-display { font-family: 'Space Grotesk', sans-serif; }
+  .aura-font-mono { font-family: 'JetBrains Mono', monospace; }
+  .aura-range { -webkit-appearance: none; appearance: none; height: 14px; border-radius: 7px; outline: none; width: 100%; }
+  .aura-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid #121014; box-shadow: 0 0 0 1px rgba(255,255,255,0.3); cursor: pointer; }
+  .aura-range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid #121014; cursor: pointer; }
+  .swatch { transition: transform .15s ease; }
+  .swatch:hover { transform: translateY(-4px); }
+  .touch-none { touch-action: none; }
+
+  /* ---------- splash screen ---------- */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,107,107,0.28), transparent 55%),
+      radial-gradient(circle at 70% 25%, rgba(255,217,61,0.24), transparent 55%),
+      radial-gradient(circle at 50% 70%, rgba(107,203,119,0.22), transparent 55%),
+      radial-gradient(circle at 20% 75%, rgba(77,150,255,0.26), transparent 55%),
+      radial-gradient(circle at 80% 75%, rgba(155,93,229,0.26), transparent 55%),
+      #121014;
+    transition: opacity .6s ease;
+  }
+  #splash.hide { opacity: 0; pointer-events: none; }
+  #splash img { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 10px 40px -8px rgba(0,0,0,0.5); }
+  #splash h1 { font-family: 'Space Grotesk', sans-serif; color: #EDEBE6; font-weight: 700; font-size: 28px; margin-top: 18px; letter-spacing: -0.02em; }
+  #splash p { font-family: 'JetBrains Mono', monospace; color: #8f8d95; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body class="min-h-screen w-full text-[#EDEBE6]" style="background:#121014;">
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="icons/icon-192.png" alt="mixEm logo" />
+  <h1>mixEm</h1>
+  <p>color wheel &amp; palette builder</p>
+</div>
+
+<!-- APP -->
+<div class="max-w-5xl mx-auto px-5 py-10">
+  <div class="flex items-baseline justify-between mb-8 flex-wrap gap-2">
+    <div>
+      <h1 class="aura-font-display text-3xl font-bold tracking-tight">mixEm</h1>
+      <p class="text-sm text-[#8f8d95] mt-1">pick from the wheel, find your harmony, export your palette</p>
+    </div>
+    <div id="harmonyLabel" class="aura-font-mono text-xs text-[#8f8d95]"></div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-8">
+    <!-- LEFT: wheel + values -->
+    <div class="rounded-2xl p-6 relative overflow-hidden" style="background:#1a181e;border:1px solid #2a2830;">
+      <div id="glow" class="absolute inset-0 pointer-events-none" style="transition:background .3s ease;"></div>
+      <div class="relative flex flex-col items-center">
+        <div class="relative" style="width:260px;height:260px;">
+          <canvas id="wheelCanvas" width="260" height="260" class="rounded-full cursor-crosshair touch-none"></canvas>
+          <div id="wheelPointer" class="absolute rounded-full pointer-events-none" style="width:18px;height:18px;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.5);"></div>
+        </div>
+
+        <div class="w-full mt-6">
+          <label class="aura-font-mono text-xs text-[#8f8d95]">BRIGHTNESS (B) — <span id="vLabel">85</span>%</label>
+          <input id="brightnessRange" type="range" min="0" max="100" value="85" class="aura-range mt-1" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 w-full mt-5">
+          <div>
+            <label class="aura-font-mono text-xs text-[#8f8d95]">HEX</label>
+            <input id="hexInput" class="aura-font-mono w-full mt-1 px-3 py-2 rounded-lg bg-[#121014] border border-[#2a2830] text-sm" />
+          </div>
+          <div class="flex items-end">
+            <button id="copyHexBtn" class="w-full py-2 rounded-lg text-sm font-medium">Copy</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 w-full mt-3">
+          <div>
+            <label class="aura-font-mono text-xs text-[#8f8d95]">R</label>
+            <input id="rInput" type="number" min="0" max="255" class="aura-font-mono w-full mt-1 px-2 py-1.5 rounded-lg bg-[#121014] border border-[#2a2830] text-sm" />
+          </div>
+          <div>
+            <label class="aura-font-mono text-xs text-[#8f8d95]">G</label>
+            <input id="gInput" type="number" min="0" max="255" class="aura-font-mono w-full mt-1 px-2 py-1.5 rounded-lg bg-[#121014] border border-[#2a2830] text-sm" />
+          </div>
+          <div>
+            <label class="aura-font-mono text-xs text-[#8f8d95]">B</label>
+            <input id="bInput" type="number" min="0" max="255" class="aura-font-mono w-full mt-1 px-2 py-1.5 rounded-lg bg-[#121014] border border-[#2a2830] text-sm" />
+          </div>
+        </div>
+        <div id="hsbReadout" class="aura-font-mono text-xs text-[#8f8d95] mt-3"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: harmony + palette + export -->
+    <div class="flex flex-col gap-4">
+      <div class="rounded-2xl p-5" style="background:#1a181e;border:1px solid #2a2830;">
+        <div class="aura-font-mono text-xs text-[#8f8d95] mb-3">COLOR HARMONY</div>
+        <div id="harmonyButtons" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="rounded-2xl p-5" style="background:#1a181e;border:1px solid #2a2830;">
+        <div class="flex items-center justify-between mb-3">
+          <div class="aura-font-mono text-xs text-[#8f8d95]">PALETTE — click: copy · shift+click: set as base</div>
+          <button id="savePaletteBtn" class="text-xs aura-font-display underline text-[#8f8d95] hover:text-white">save palette</button>
+        </div>
+        <div id="paletteContainer" class="flex gap-2"></div>
+
+        <div class="flex flex-wrap gap-2 mt-4">
+          <button id="exportJsonBtn" class="px-3 py-1.5 rounded-lg text-xs border border-[#2a2830] aura-font-display hover:border-[#4a4850]">Download JSON</button>
+          <button id="exportPngBtn" class="px-3 py-1.5 rounded-lg text-xs border border-[#2a2830] aura-font-display hover:border-[#4a4850]">Download PNG</button>
+          <button id="exportAseBtn" class="px-3 py-1.5 rounded-lg text-xs border border-[#2a2830] aura-font-display hover:border-[#4a4850]">Download .ase</button>
+          <button id="copyCodesBtn" class="px-3 py-1.5 rounded-lg text-xs border border-[#2a2830] aura-font-display hover:border-[#4a4850]">Copy codes</button>
+        </div>
+      </div>
+
+      <div id="savedWrap" class="rounded-2xl p-5" style="background:#1a181e;border:1px solid #2a2830;display:none;">
+        <div class="aura-font-mono text-xs text-[#8f8d95] mb-3">SAVED PALETTES</div>
+        <div id="savedContainer" class="flex flex-col gap-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="text-center mt-10 pb-2">
+    <a href="https://github.com/yunicorn-dev" target="_blank" rel="noopener noreferrer" class="aura-font-mono text-xs text-[#8f8d95] hover:text-white transition-colors">
+      Made with ❤️ yunicorn
+    </a>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full aura-font-mono text-xs" style="display:none;"></div>
+
+<script>
+/* ================= color conversions ================= */
+function hsvToRgb(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.min(100, Math.max(0, s)) / 100;
+  v = Math.min(100, Math.max(0, v)) / 100;
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let r1, g1, b1;
+  if (h < 60) [r1, g1, b1] = [c, x, 0];
+  else if (h < 120) [r1, g1, b1] = [x, c, 0];
+  else if (h < 180) [r1, g1, b1] = [0, c, x];
+  else if (h < 240) [r1, g1, b1] = [0, x, c];
+  else if (h < 300) [r1, g1, b1] = [x, 0, c];
+  else [r1, g1, b1] = [c, 0, x];
+  return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  const s = max === 0 ? 0 : d / max;
+  return [h, s * 100, max * 100];
+}
+function rgbToHex(r, g, b) { return "#" + [r, g, b].map(n => n.toString(16).padStart(2, "0")).join("").toUpperCase(); }
+function hexToRgb(hex) {
+  const m = hex.replace("#", "").match(/^([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const int = parseInt(m[1], 16);
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+}
+function hsvToHex(h, s, v) { const [r,g,b] = hsvToRgb(h,s,v); return rgbToHex(r,g,b); }
+
+/* ================= harmony rules ================= */
+const HARMONIES = {
+  mono: { label: "Monochromatic", hues: h => [h,h,h,h,h] },
+  analog: { label: "Analogous", hues: h => [h-30,h-15,h,h+15,h+30] },
+  complementary: { label: "Complementary", hues: h => [h,h,h+180,h+180,h] },
+  splitComp: { label: "Split Complementary", hues: h => [h,h+150,h+150,h+210,h+210] },
+  triadic: { label: "Triadic", hues: h => [h,h,h+120,h+240,h+240] },
+  square: { label: "Square (Tetradic)", hues: h => [h,h+90,h+180,h+270,h] },
+  rectangle: { label: "Rectangle", hues: h => [h,h+60,h+180,h+240,h] },
+};
+function makeSwatch(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  const [r,g,b] = hsvToRgb(h,s,v);
+  return { h, s, v, r, g, b, hex: rgbToHex(r,g,b) };
+}
+function buildPalette(type, h, s, v) {
+  const hues = HARMONIES[type].hues(h);
+  if (type === "mono") {
+    const vSteps = [92,74,56,38,20];
+    return hues.map((hue,i) => makeSwatch(hue, s, vSteps[i]));
+  }
+  return hues.map(hue => makeSwatch(hue, s, v));
+}
+
+/* ================= export ================= */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function exportJSON(colors, name) {
+  const data = {
+    name, createdAt: new Date().toISOString(),
+    colors: colors.map(c => ({ hex: c.hex, rgb: [c.r,c.g,c.b], hsb: [Math.round(c.h),Math.round(c.s),Math.round(c.v)] })),
+  };
+  downloadBlob(new Blob([JSON.stringify(data,null,2)], {type:"application/json"}), name + ".json");
+}
+function exportPNG(colors, name) {
+  const w = 140, h = 170;
+  const canvas = document.createElement("canvas");
+  canvas.width = w * colors.length; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  colors.forEach((c,i) => {
+    ctx.fillStyle = c.hex; ctx.fillRect(i*w, 0, w, h-30);
+    ctx.fillStyle = "#111"; ctx.fillRect(i*w, h-30, w, 30);
+    ctx.fillStyle = "#eee"; ctx.font = "14px monospace"; ctx.textAlign = "center";
+    ctx.fillText(c.hex, i*w + w/2, h-10);
+  });
+  canvas.toBlob(blob => downloadBlob(blob, name + ".png"));
+}
+function exportASE(colors, name) {
+  const enc = s => { const arr=[]; for (const ch of s) arr.push(ch.charCodeAt(0)); arr.push(0); return arr; };
+  const blocks = colors.map((c,i) => {
+    const nameCodes = enc("Color " + (i+1));
+    const dataLen = 2 + nameCodes.length*2 + 4 + 12 + 2;
+    return { nameCodes, dataLen, color: c };
+  });
+  const totalLen = 4+4+4 + blocks.reduce((sum,b)=>sum+6+b.dataLen,0);
+  const buf = new ArrayBuffer(totalLen);
+  const dv = new DataView(buf);
+  let off = 0;
+  "ASEF".split("").forEach(ch => { dv.setUint8(off, ch.charCodeAt(0)); off+=1; });
+  dv.setUint16(off,1); off+=2; dv.setUint16(off,0); off+=2;
+  dv.setUint32(off, blocks.length); off+=4;
+  blocks.forEach(b => {
+    dv.setUint16(off,0x0001); off+=2;
+    dv.setUint32(off,b.dataLen); off+=4;
+    dv.setUint16(off,b.nameCodes.length); off+=2;
+    b.nameCodes.forEach(code => { dv.setUint16(off,code); off+=2; });
+    "RGB ".split("").forEach(ch => { dv.setUint8(off, ch.charCodeAt(0)); off+=1; });
+    dv.setFloat32(off, b.color.r/255); off+=4;
+    dv.setFloat32(off, b.color.g/255); off+=4;
+    dv.setFloat32(off, b.color.b/255); off+=4;
+    dv.setUint16(off,0); off+=2;
+  });
+  downloadBlob(new Blob([buf], {type:"application/octet-stream"}), name + ".ase");
+}
+
+/* ================= state ================= */
+let state = { h: 268, s: 72, v: 85, harmony: "analog" };
+let saved = [];
+let dragging = false;
+const SIZE = 260;
+
+/* ================= DOM refs ================= */
+const wheelCanvas = document.getElementById("wheelCanvas");
+const wheelCtx = wheelCanvas.getContext("2d");
+const wheelPointer = document.getElementById("wheelPointer");
+const glowEl = document.getElementById("glow");
+const brightnessRange = document.getElementById("brightnessRange");
+const vLabel = document.getElementById("vLabel");
+const hexInput = document.getElementById("hexInput");
+const copyHexBtn = document.getElementById("copyHexBtn");
+const rInput = document.getElementById("rInput");
+const gInput = document.getElementById("gInput");
+const bInput = document.getElementById("bInput");
+const hsbReadout = document.getElementById("hsbReadout");
+const harmonyButtonsEl = document.getElementById("harmonyButtons");
+const harmonyLabelEl = document.getElementById("harmonyLabel");
+const paletteContainer = document.getElementById("paletteContainer");
+const savedWrap = document.getElementById("savedWrap");
+const savedContainer = document.getElementById("savedContainer");
+const toastEl = document.getElementById("toast");
+
+/* ================= draw wheel ================= */
+(function drawWheel() {
+  const radius = SIZE / 2;
+  const img = wheelCtx.createImageData(SIZE, SIZE);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      const dx = x - radius, dy = y - radius;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const idx = (y*SIZE + x) * 4;
+      if (dist <= radius) {
+        let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (ang < 0) ang += 360;
+        const sat = Math.min(100, (dist/radius)*100);
+        const [pr,pg,pb] = hsvToRgb(ang, sat, 100);
+        img.data[idx]=pr; img.data[idx+1]=pg; img.data[idx+2]=pb; img.data[idx+3]=255;
+      } else { img.data[idx+3]=0; }
+    }
+  }
+  wheelCtx.putImageData(img, 0, 0);
+})();
+
+/* ================= build harmony buttons once ================= */
+Object.entries(HARMONIES).forEach(([key,val]) => {
+  const btn = document.createElement("button");
+  btn.dataset.key = key;
+  btn.textContent = val.label;
+  btn.className = "px-3 py-1.5 rounded-full text-xs aura-font-display border transition-colors";
+  btn.addEventListener("click", () => { state.harmony = key; render(); });
+  harmonyButtonsEl.appendChild(btn);
+});
+
+/* ================= toast ================= */
+let toastTimer = null;
+function showToast(text, bg, color) {
+  toastEl.textContent = text;
+  toastEl.style.background = bg;
+  toastEl.style.color = color;
+  toastEl.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.style.display = "none"; }, 1200);
+}
+function copy(text, label, bg, color) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  showToast(label, bg, color);
+}
+
+/* ================= render ================= */
+function render() {
+  const { h, s, v, harmony } = state;
+  const hex = hsvToHex(h, s, v);
+  const [r,g,b] = hsvToRgb(h, s, v);
+  const textOnColor = v > 55 ? "#111" : "#fff";
+
+  harmonyLabelEl.textContent = HARMONIES[harmony].label;
+
+  glowEl.style.background = "radial-gradient(circle at 50% 38%, " + hex + "33, transparent 65%)";
+  wheelCanvas.style.boxShadow = "0 0 40px -6px " + hex + "66";
+
+  const pointerX = SIZE/2 + Math.cos(h*Math.PI/180) * (s/100) * (SIZE/2);
+  const pointerY = SIZE/2 + Math.sin(h*Math.PI/180) * (s/100) * (SIZE/2);
+  wheelPointer.style.left = (pointerX - 9) + "px";
+  wheelPointer.style.top = (pointerY - 9) + "px";
+  wheelPointer.style.background = hex;
+
+  if (document.activeElement !== brightnessRange) brightnessRange.value = v;
+  vLabel.textContent = Math.round(v);
+  brightnessRange.style.background = "linear-gradient(to right, #000, " + hsvToHex(h,s,100) + ")";
+
+  if (document.activeElement !== hexInput) hexInput.value = hex;
+  copyHexBtn.style.background = hex;
+  copyHexBtn.style.color = textOnColor;
+
+  if (document.activeElement !== rInput) rInput.value = r;
+  if (document.activeElement !== gInput) gInput.value = g;
+  if (document.activeElement !== bInput) bInput.value = b;
+
+  hsbReadout.textContent = "HSB: " + Math.round(h) + "° · " + Math.round(s) + "% · " + Math.round(v) + "%";
+
+  harmonyButtonsEl.querySelectorAll("button").forEach(btn => {
+    const active = btn.dataset.key === harmony;
+    btn.style.background = active ? hex : "transparent";
+    btn.style.color = active ? textOnColor : "#8f8d95";
+    btn.style.borderColor = active ? hex : "#2a2830";
+  });
+
+  const palette = buildPalette(harmony, h, s, v);
+  window.__currentPalette = palette;
+  paletteContainer.innerHTML = palette.map((c,i) =>
+    '<button class="swatch flex-1 rounded-xl h-20 flex items-end justify-center pb-2" style="background:' + c.hex + '" data-i="' + i + '">' +
+      '<span class="aura-font-mono text-[10px]" style="color:' + (c.v > 55 ? "#111" : "#fff") + '">' + c.hex + '</span>' +
+    '</button>'
+  ).join("");
+  paletteContainer.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const c = window.__currentPalette[Number(btn.dataset.i)];
+      if (e.shiftKey) { state.h = c.h; state.s = c.s; state.v = c.v; render(); }
+      else copy(c.hex, c.hex + " copied", c.hex, c.v > 55 ? "#111" : "#fff");
+    });
+  });
+
+  savedWrap.style.display = saved.length ? "block" : "none";
+  savedContainer.innerHTML = saved.map(p =>
+    '<div class="flex items-center gap-2" data-id="' + p.id + '">' +
+      '<div class="flex flex-1 rounded-lg overflow-hidden h-9">' +
+        p.colors.map(c => '<div class="flex-1" style="background:' + c.hex + '"></div>').join("") +
+      '</div>' +
+      '<button class="aura-font-mono text-[10px] text-[#8f8d95] hover:text-white" data-action="json">JSON</button>' +
+      '<button class="aura-font-mono text-[10px] text-[#8f8d95] hover:text-white" data-action="png">PNG</button>' +
+      '<button class="aura-font-mono text-[10px] text-[#8f8d95] hover:text-red-400" data-action="del">delete</button>' +
+    '</div>'
+  ).join("");
+  savedContainer.querySelectorAll("[data-id]").forEach(row => {
+    const id = Number(row.dataset.id);
+    const p = saved.find(x => x.id === id);
+    row.querySelector('[data-action="json"]').addEventListener("click", () => exportJSON(p.colors, p.name));
+    row.querySelector('[data-action="png"]').addEventListener("click", () => exportPNG(p.colors, p.name));
+    row.querySelector('[data-action="del"]').addEventListener("click", () => { saved = saved.filter(x => x.id !== id); render(); });
+  });
+}
+
+/* ================= interactions ================= */
+function setFromPointer(clientX, clientY) {
+  const rect = wheelCanvas.getBoundingClientRect();
+  const radius = SIZE/2;
+  let dx = clientX - rect.left - radius;
+  let dy = clientY - rect.top - radius;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > radius) { dx = dx/dist*radius; dy = dy/dist*radius; dist = radius; }
+  let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (ang < 0) ang += 360;
+  state.h = ang;
+  state.s = Math.min(100, (dist/radius)*100);
+  render();
+}
+wheelCanvas.addEventListener("mousedown", e => { dragging = true; setFromPointer(e.clientX, e.clientY); });
+wheelCanvas.addEventListener("touchstart", e => { dragging = true; const t = e.touches[0]; setFromPointer(t.clientX, t.clientY); }, {passive:true});
+window.addEventListener("mousemove", e => { if (dragging) setFromPointer(e.clientX, e.clientY); });
+window.addEventListener("touchmove", e => { if (dragging) { const t = e.touches[0]; setFromPointer(t.clientX, t.clientY); } }, {passive:true});
+window.addEventListener("mouseup", () => dragging = false);
+window.addEventListener("touchend", () => dragging = false);
+
+brightnessRange.addEventListener("input", e => { state.v = Number(e.target.value); render(); });
+
+hexInput.addEventListener("change", e => {
+  const rgb = hexToRgb(e.target.value);
+  if (rgb) { const [hh,ss,vv] = rgbToHsv(...rgb); state.h=hh; state.s=ss; state.v=vv; }
+  render();
+});
+
+[rInput,gInput,bInput].forEach((el,i) => {
+  el.addEventListener("change", () => {
+    const [r,g,b] = hsvToRgb(state.h, state.s, state.v);
+    const cur = [r,g,b];
+    cur[i] = Math.min(255, Math.max(0, Number(el.value) || 0));
+    const [hh,ss,vv] = rgbToHsv(...cur);
+    state.h=hh; state.s=ss; state.v=vv;
+    render();
+  });
+});
+
+copyHexBtn.addEventListener("click", () => {
+  const hex = hsvToHex(state.h, state.s, state.v);
+  copy(hex, "Hex copied", hex, state.v > 55 ? "#111" : "#fff");
+});
+
+document.getElementById("savePaletteBtn").addEventListener("click", () => {
+  const hex = hsvToHex(state.h, state.s, state.v);
+  saved = [{ id: Date.now(), name: HARMONIES[state.harmony].label + " — " + hex, colors: window.__currentPalette }, ...saved];
+  render();
+});
+document.getElementById("exportJsonBtn").addEventListener("click", () => exportJSON(window.__currentPalette, "mixem-palette"));
+document.getElementById("exportPngBtn").addEventListener("click", () => exportPNG(window.__currentPalette, "mixem-palette"));
+document.getElementById("exportAseBtn").addEventListener("click", () => exportASE(window.__currentPalette, "mixem-palette"));
+document.getElementById("copyCodesBtn").addEventListener("click", () => {
+  const codes = window.__currentPalette.map(c => c.hex).join(", ");
+  const hex = hsvToHex(state.h, state.s, state.v);
+  copy(codes, "Codes copied", hex, state.v > 55 ? "#111" : "#fff");
+});
+
+/* ================= init ================= */
+render();
+
+/* ================= splash ================= */
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    const splash = document.getElementById("splash");
+    splash.classList.add("hide");
+    setTimeout(() => splash.remove(), 650);
+  }, 900);
+});
+
+/* ================= service worker ================= */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
