@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://yunicorn-dev.github.io/mixem"><b> Launch App</b></a>
+  <a href="https://yunicorn-dev.github.io/mixEm/"><b> Launch App</b></a>
 </p>
 
 ---
