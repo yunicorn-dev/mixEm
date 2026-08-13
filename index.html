@@ -85,7 +85,12 @@
           <input id="brightnessRange" type="range" min="0" max="100" value="85" class="aura-range mt-1" />
         </div>
 
-        <div class="grid grid-cols-2 gap-4 w-full mt-5">
+        <div id="colorNameBadge" class="w-full mt-5 flex items-center justify-center gap-2">
+          <span id="colorNameDot" class="inline-block rounded-full flex-shrink-0" style="width:12px;height:12px;"></span>
+          <span id="colorNameText" class="aura-font-display font-semibold tracking-tight" style="color:#EDEBE6;font-size:20px;letter-spacing:-0.02em;"></span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 w-full mt-4">
           <div>
             <label class="aura-font-mono text-xs text-[#8f8d95]">HEX</label>
             <input id="hexInput" class="aura-font-mono w-full mt-1 px-3 py-2 rounded-lg bg-[#121014] border border-[#2a2830] text-sm" />
@@ -145,7 +150,7 @@
   <!-- FOOTER -->
   <div class="text-center mt-10 pb-2">
     <a href="https://github.com/yunicorn-dev" target="_blank" rel="noopener noreferrer" class="aura-font-mono text-xs text-[#8f8d95] hover:text-white transition-colors">
-      Made with ❤️ by yunicorn
+      Made with ❤️ yunicorn
     </a>
   </div>
 </div>
@@ -377,6 +382,11 @@ function render() {
 
   hsbReadout.textContent = "HSB: " + Math.round(h) + "° · " + Math.round(s) + "% · " + Math.round(v) + "%";
 
+  const colorName = getColorName(hex);
+  document.getElementById("colorNameText").textContent = colorName;
+  document.getElementById("colorNameDot").style.background = hex;
+  document.getElementById("colorNameDot").style.boxShadow = "0 0 0 1px rgba(255,255,255,0.15)";
+
   harmonyButtonsEl.querySelectorAll("button").forEach(btn => {
     const active = btn.dataset.key === harmony;
     btn.style.background = active ? hex : "transparent";
@@ -477,6 +487,102 @@ document.getElementById("copyCodesBtn").addEventListener("click", () => {
   const hex = hsvToHex(state.h, state.s, state.v);
   copy(codes, "Codes copied", hex, state.v > 55 ? "#111" : "#fff");
 });
+
+/* ================= color name database ================= */
+const COLOR_NAMES = [
+  ["#000000","Black"],["#111111","Near black"],["#1a1a1a","Oil"],["#222222","Dark charcoal"],
+  ["#333333","Jet"],["#444444","Tundora"],["#555555","Boulder"],["#666666","Dove gray"],
+  ["#777777","Dusty gray"],["#888888","Gray"],["#999999","Silver chalice"],["#aaaaaa","Dark gray"],
+  ["#bbbbbb","Silver"],["#cccccc","Alto"],["#dddddd","Gainsboro"],["#eeeeee","Concrete"],
+  ["#ffffff","White"],["#fffafa","Snow"],["#f5f5f5","White smoke"],["#f0f0f0","Seashell"],
+  ["#ff0000","Red"],["#cc0000","Dark red"],["#990000","Maroon"],["#ff3333","Scarlet"],
+  ["#ff6666","Bittersweet"],["#ff9999","Light red"],["#ffcccc","Misty rose"],
+  ["#ff4500","Red-orange"],["#ff6347","Tomato"],["#ff7f50","Coral"],["#ff8c69","Salmon"],
+  ["#ffa07a","Light salmon"],["#ff7043","Deep orange"],["#f4511e","Burnt orange"],
+  ["#e64a19","Deep burnt orange"],["#bf360c","Mahogany"],
+  ["#ff8000","Orange"],["#ff9900","Amber"],["#ffaa00","Golden amber"],["#ffb300","Marigold"],
+  ["#ffc200","Saffron"],["#ffd700","Gold"],["#ffcc00","Jonquil"],["#f5a623","Tangerine"],
+  ["#e67e00","Dark orange"],["#d4700a","Ochre"],
+  ["#ffff00","Yellow"],["#ffff33","Laser"],["#ffff66","Pale yellow"],["#fffacd","Lemon chiffon"],
+  ["#ffd700","Golden"],["#fde910","Broom"],["#f9e400","Turbo"],["#e6d800","School bus"],
+  ["#cccc00","Dark yellow"],["#808000","Olive"],["#6b6b00","Dark olive"],
+  ["#00ff00","Lime"],["#00cc00","Green"],["#009900","Forest green"],["#006600","Dark green"],
+  ["#00ff66","Spring green"],["#00ff99","Medium spring"],["#00ffcc","Turquoise green"],
+  ["#33ff33","Neon green"],["#66ff66","Screamin green"],["#99ff99","Mint green"],
+  ["#ccffcc","Honeydew"],["#39d353","Emerald"],["#2ecc71","Nephritis"],["#27ae60","Nephrite"],
+  ["#1e8449","Amazon"],["#145a32","Bottle green"],["#52c41a","Lime green"],["#7cb342","Apple"],
+  ["#8bc34a","Light green"],["#aed581","Feijoa"],["#c5e1a5","Dew"],
+  ["#4caf50","Medium green"],["#388e3c","Fern"],["#2e7d32","Forest"],
+  ["#00ffff","Cyan"],["#00cccc","Dark cyan"],["#009999","Teal"],["#006666","Pine"],
+  ["#00bcd4","Cerulean"],["#0097a7","Munsell blue"],["#00838f","Eastern blue"],
+  ["#006064","Blue stone"],["#80ffff","Electric blue"],["#b2ebf2","Pattens blue"],
+  ["#e0f7fa","Bubbles"],["#40DAFF","Ice blue"],["#29b6f6","Maya blue"],["#03a9f4","Pacific blue"],
+  ["#0288d1","Denim"],["#01579b","Indigo dye"],["#4fc3f7","Malibu"],["#81d4fa","Perano"],
+  ["#0000ff","Blue"],["#0000cc","Medium blue"],["#000099","Dark blue"],["#000066","Navy"],
+  ["#0033cc","Royal blue"],["#0066cc","Cobalt blue"],["#0099cc","Lochmara"],
+  ["#3333ff","Neon blue"],["#3366ff","Ultramarine"],["#3399ff","Cornflower blue"],
+  ["#66aaff","Blue jeans"],["#99ccff","Perano"],["#cce5ff","Alice blue"],
+  ["#1565c0","Denim blue"],["#1976d2","Picton blue"],["#1e88e5","Dodger blue"],
+  ["#2196f3","Brilliant blue"],["#42a5f5","Cornflower"],["#64b5f6","Jordy blue"],
+  ["#90caf9","Pale blue"],["#bbdefb","Lavender blue"],["#e3f2fd","Solitude"],
+  ["#4a148c","Violet eggplant"],["#6a1b9a","Grape"],["#7b1fa2","Medium purple"],
+  ["#8e24aa","Byzantine"],["#9c27b0","Purple"],["#ab47bc","Amethyst"],
+  ["#ba68c8","Lavender"],["#ce93d8","Wisteria"],["#e1bee7","Thistle"],
+  ["#7c4dff","Veronica"],["#651fff","Electric violet"],["#6200ea","Dark violet"],
+  ["#8000ff","Electric purple"],["#9933ff","Blue violet"],["#aa55ff","Amethyst purple"],
+  ["#bb77ff","Mauve"],["#cc99ff","Pale purple"],["#ddbbff","Perfume"],["#eeddff","Magnolia"],
+  ["#ff00ff","Magenta"],["#cc00cc","Dark magenta"],["#990099","Purple magenta"],
+  ["#ff33ff","Shocking pink"],["#ff66ff","Violet pink"],["#ff99ff","Pale pink"],
+  ["#e91e63","Crimson"],["#c2185b","Jazzberry"],["#880e4f","Claret"],
+  ["#f06292","Hot pink"],["#f48fb1","Carnation pink"],["#fce4ec","Lavender blush"],
+  ["#ff0099","Neon rose"],["#ff0077","Rose"],["#ff0055","Amaranth"],["#ff0033","Torch red"],
+  ["#ff1493","Deep pink"],["#ff69b4","Hot pink"],["#ffb6c1","Light pink"],["#ffc0cb","Pink"],
+  ["#fff0f5","Lavender blush"],["#ffe4e1","Misty rose"],
+  ["#ff6b6b","Coral red"],["#ff8e53","Sunset orange"],["#ffd93d","Golden yellow"],
+  ["#6bcb77","Mint green"],["#4d96ff","Sky blue"],["#9b5de5","Vivid purple"],
+  ["#f15bb5","Hot pink"],["#00bbf9","Azure"],["#00f5d4","Aqua mint"],
+  ["#fee440","Lemon"],["#e63946","Crimson"],["#457b9d","Steel blue"],
+  ["#2a9d8f","Emerald teal"],["#e9c46a","Sand"],["#f4a261","Apricot"],
+  ["#264653","Dark slate"],["#a8dadc","Powder blue"],["#1d3557","Navy blue"],
+  ["#b5e48c","Sage green"],["#c77dff","Lavender violet"],["#2ec4b6","Sea green"],
+  ["#ffbf69","Peach"],["#cbf3f0","Frost"],["#ffccf9","Blush"],
+  ["#8338ec","Royal purple"],["#3a86ff","Cobalt"],["#fb5607","Flame"],
+  ["#ffe8d6","Linen"],["#ddbea9","Pale taupe"],["#b7b7a4","Sage"],["#a5a58d","Artichoke"],
+  ["#6b705c","Ebony clay"],["#3d405b","Charcoal"],["#81b29a","Eton blue"],["#f2cc8f","Mellow apricot"],
+  ["#e07a5f","Terra cotta"],["#3d405b","Space cadet"],["#f4f1de","Cream"],
+  ["#118ab2","Cerulean blue"],["#06d6a0","Caribbean green"],["#ffd166","Naples yellow"],
+  ["#ef476f","Paradise pink"],["#073b4c","Midnight green"],
+  ["#d62828","Maximum red"],["#f77f00","University orange"],["#fcbf49","Jasmine"],
+  ["#eae2b7","Vanilla"],["#003049","Prussian blue"],
+  ["#606c38","Dark olive green"],["#283618","Phthalo green"],["#fefae0","Old lace"],
+  ["#dda15e","Camel"],["#bc6c25","Chocolate"],
+  ["#cdb4db","Lilac"],["#ffc8dd","Fairy tale"],["#ffafcc","Carnation"],
+  ["#bde0fe","Light sky blue"],["#a2d2ff","Pale cornflower"],
+  ["#8ecae6","Sky blue"],["#219ebc","Cerulean crayola"],["#023047","Prussian"],
+  ["#ffb703","Selective yellow"],["#fb8500","Alloy orange"],
+  ["#370617","Smoky black"],["#6a040f","Barn red"],["#9d0208","Dark red"],
+  ["#d00000","Lust"],["#dc2f02","Persimmon"],["#e85d04","Flame orange"],
+  ["#f48c06","Harvest gold"],["#faa307","Dark tangerine"],["#ffba08","Mikado yellow"],
+];
+
+function colorDist(r1,g1,b1,r2,g2,b2){
+  const dr=r1-r2, dg=g1-g2, db=b1-b2;
+  return dr*dr + dg*dg + db*db;
+}
+function getColorName(hex) {
+  const m = hex.replace('#','').match(/^([0-9a-f]{6})$/i);
+  if (!m) return '';
+  const n = parseInt(m[1],16);
+  const r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  let bestName='', bestDist=Infinity;
+  for (const [h, name] of COLOR_NAMES) {
+    const n2 = parseInt(h.replace('#',''),16);
+    const r2=(n2>>16)&255, g2=(n2>>8)&255, b2=n2&255;
+    const d = colorDist(r,g,b,r2,g2,b2);
+    if (d < bestDist) { bestDist=d; bestName=name; }
+  }
+  return bestName;
+}
 
 /* ================= init ================= */
 render();
